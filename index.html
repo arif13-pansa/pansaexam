@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <title>PansaExam — SMP Negeri 1 Pandak</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #ffffff;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+    #loading {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      color: #555;
+      font-size: 16px;
+      z-index: 0;
+    }
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 4px solid #ddd;
+      border-top-color: #1a73e8;
+      border-radius: 50%;
+      animation: putar 0.9s linear infinite;
+    }
+    @keyframes putar { to { transform: rotate(360deg); } }
+    #app {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100vh;
+      height: 100dvh; /* mengikuti tinggi layar ponsel yang sebenarnya */
+      border: 0;
+      z-index: 1;
+      background: transparent;
+    }
+    #cadangan {
+      position: fixed;
+      bottom: 8px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font-size: 12px;
+      z-index: 0;
+    }
+    #cadangan a { color: #1a73e8; }
+  </style>
+</head>
+<body>
+  <div id="loading">
+    <div class="spinner"></div>
+    <div>Memuat PansaExam...</div>
+  </div>
+
+  <iframe
+    id="app"
+    src="https://script.google.com/macros/s/AKfycbxoPGRGn9qq6Mre1MrpUF4rSS6l7prAd4TXzjZn6MHAz1ZSOFLRToaGSn0bGHIBMR2kyQ/exec"
+    title="PansaExam — SMP Negeri 1 Pandak"
+    allow="fullscreen; camera; microphone; clipboard-write"
+    allowfullscreen>
+  </iframe>
+
+  <div id="cadangan">
+    Halaman tidak muncul?
+    <a href="https://script.google.com/macros/s/AKfycbxoPGRGn9qq6Mre1MrpUF4rSS6l7prAd4TXzjZn6MHAz1ZSOFLRToaGSn0bGHIBMR2kyQ/exec">Buka langsung</a>
+  </div>
+</body>
+</html>

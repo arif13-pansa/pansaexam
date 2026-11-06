@@ -194,7 +194,11 @@ function togglePass(){
         <div class="bg-slate-800/90 rounded-xl border border-slate-700/60 p-5 space-y-4 shadow-xl">
           <div class="flex items-center justify-between border-b border-slate-700/60 pb-3">
             <h4 id="paket-title" class="font-bold text-slate-100 flex items-center gap-2"><i data-lucide="book-open" class="w-4 h-4 text-indigo-400"></i> Pratinjau Soal Paket</h4>
-            <span id="paket-count" class="text-xs bg-slate-700 text-slate-300 px-2.5 py-1 rounded">0 Soal</span>
+            <div class="flex items-center gap-2 flex-wrap justify-end">
+              <button onclick="unduhPaketPDF(false)" class="text-xs bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/30 font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5" title="Lembar soal tanpa kunci jawaban"><i data-lucide="file-down" class="w-3.5 h-3.5"></i> Unduh PDF Soal</button>
+              <button onclick="unduhPaketPDF(true)" class="text-xs bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/30 font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5" title="Lembar soal dengan kunci jawaban (untuk guru)"><i data-lucide="file-check" class="w-3.5 h-3.5"></i> PDF + Kunci</button>
+              <span id="paket-count" class="text-xs bg-slate-700 text-slate-300 px-2.5 py-1 rounded">0 Soal</span>
+            </div>
           </div>
           <div class="flex items-center gap-2 text-xs flex-wrap" id="type-filter">
             <span class="text-slate-400">Filter Tipe:</span>
@@ -610,14 +614,23 @@ async function doLogin(e){
   try {
     const r = await gs('apiLogin', $('lg-id').value, $('lg-pass').value, 'admin');
     if (!r.ok){ err.textContent = r.msg; err.classList.remove('hidden'); }
-    else { TOKEN = r.token; store.set('pansa_admin_token', TOKEN); await boot(); }
+    else { TOKEN = r.token; store.set('pansa_admin_token', TOKEN); seenNow(); await boot(); }
   } catch(ex){ err.textContent = 'Gagal terhubung ke server: ' + (ex.message || ex); err.classList.remove('hidden'); }
   btn.disabled = false; btn.textContent = 'Masuk';
 }
+/* ---- keluar otomatis bila halaman ditinggalkan/ditutup lebih dari AWAY_MS ---- */
+const AWAY_MS = 5 * 60 * 1000;                       // ubah angka ini untuk mengganti batas waktu (ms), mis. 15 * 60 * 1000
+function seenNow(){ store.set('pansa_seen', String(Date.now())); }
+function awayExpired(){ const t = +store.get('pansa_seen') || 0; return t > 0 && Date.now() - t > AWAY_MS; }
+function expireIfAway(){ if (!TOKEN || !awayExpired()) return false; logout('away'); return true; }
+setInterval(() => { if (document.hidden) return; if (!expireIfAway()) seenNow(); }, 15000);
+document.addEventListener('visibilitychange', () => { if (document.hidden) seenNow(); else if (!expireIfAway()) seenNow(); });
+window.addEventListener('pagehide', seenNow);
+
 function logout(expired){
   TOKEN = null; store.del('pansa_admin_token'); clearInterval(monTimer);
   $('app-view').classList.add('hidden'); $('login-view').classList.remove('hidden');
-  if (expired === true){ const err = $('lg-err'); err.textContent = 'Sesi login berakhir. Silakan login kembali.'; err.classList.remove('hidden'); }
+  if (expired){ const err = $('lg-err'); err.textContent = expired === 'away' ? 'Anda meninggalkan halaman lebih dari 5 menit. Silakan login kembali.' : 'Sesi login berakhir. Silakan login kembali.'; err.classList.remove('hidden'); }
 }
 
 /* ---------- boot ---------- */
@@ -963,6 +976,67 @@ $('soal-preview').addEventListener('click', async e => {
   const b = e.target.closest('[data-sdel]'); if (!b || !confirm('Hapus soal ini?')) return;
   const r = await api('apiDeleteSoal', S.selPaket, b.dataset.sdel); S.paket = r.paket; await loadSoal(true); renderPaketCards(); fillPaketSelects();
 });
+
+/* ===== Unduh paket soal sebagai PDF (lewat jendela cetak browser: pilih "Simpan sebagai PDF") ===== */
+function buildPaketPrintHTML(kode, mapel, kelas, list, withKey){
+  const tgl = new Date().toLocaleDateString('id-ID', { day:'numeric', month:'long', year:'numeric' });
+  const lab = v => v === 'Benar' ? 'B' : v === 'Salah' ? 'S' : '-';
+  const body = list.map((q, i) => {
+    let opts = '';
+    if (q.type === 'PERNYATAAN'){
+      opts = '<table class="st"><tr><th style="width:26px">No</th><th>Pernyataan</th><th style="width:54px">Benar</th><th style="width:54px">Salah</th></tr>' +
+        q.stmts.map((s, k) => {
+          const kb = withKey && q.key[k] === 'Benar', ks = withKey && q.key[k] === 'Salah';
+          return `<tr><td class="c">${k + 1}</td><td>${rich(s)}</td><td class="c${kb ? ' ok' : ''}">${kb ? '&#10003;' : '&#9744;'}</td><td class="c${ks ? ' ok' : ''}">${ks ? '&#10003;' : '&#9744;'}</td></tr>`;
+        }).join('') + '</table>';
+    } else {
+      opts = (q.type === 'MCMA' ? '<div class="note">(Pilih lebih dari satu jawaban yang benar)</div>' : '') +
+        q.opts.map(o => { const ok = withKey && q.key.includes(o.k); return `<div class="opt${ok ? ' ok' : ''}"><b>${esc(o.k)}.</b> ${rich(o.t)}${ok ? ' &#10003;' : ''}</div>`; }).join('');
+    }
+    return `<div class="q"><div class="qt"><span class="no">${i + 1}.</span><div>${rich(q.q)}
+      ${q.img ? `<div><img src="${esc(q.img)}" referrerpolicy="no-referrer" alt=""></div>` : ''}${q.q2 ? `<div>${rich(q.q2)}</div>` : ''}</div></div>${opts}</div>`;
+  }).join('');
+  const kunci = !withKey ? '' : '<div class="kunci"><h3>Kunci Jawaban</h3><div class="kg">' + list.map((q, i) =>
+    `<span><b>${i + 1}.</b> ${q.type === 'PERNYATAAN' ? q.key.map(lab).join('·') : q.key.slice().sort().join(',')}</span>`).join('') + '</div></div>';
+  return `<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><title>Paket Soal ${esc(kode)}${withKey ? ' (dengan kunci)' : ''}</title><style>
+    @page{size:A4;margin:16mm 14mm}
+    *{box-sizing:border-box} body{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#111;line-height:1.45;margin:0}
+    .bar{position:sticky;top:0;background:#1e293b;color:#fff;padding:10px 16px;display:flex;gap:12px;align-items:center;font-size:13px}
+    .bar button{background:#4f46e5;color:#fff;border:0;border-radius:6px;padding:8px 14px;font-weight:700;cursor:pointer}
+    .wrap{max-width:780px;margin:0 auto;padding:18px}
+    .kop{border-bottom:2px solid #111;padding-bottom:8px;margin-bottom:12px}.kop h1{font-size:16px;margin:0}.kop p{margin:2px 0;font-size:12px}
+    .badge{display:inline-block;border:1px solid #111;padding:1px 8px;border-radius:4px;font-size:11px;margin-top:4px}
+    .q{break-inside:avoid;page-break-inside:avoid;margin:0 0 14px}
+    .qt{display:flex;gap:6px;font-weight:600;margin-bottom:5px}.no{min-width:22px}
+    .opt{margin:3px 0 3px 28px}.note{margin:0 0 3px 28px;font-size:11px;font-style:italic;color:#444}
+    .ok{background:#d1fae5;font-weight:700}
+    img{max-width:100%;max-height:62mm;object-fit:contain;margin:5px 0}
+    table.st{border-collapse:collapse;width:calc(100% - 28px);margin:4px 0 0 28px}.st th,.st td{border:1px solid #444;padding:4px 6px;vertical-align:top}.st th{background:#f1f5f9}.st .c{text-align:center}
+    .kunci{break-inside:avoid;margin-top:18px;border-top:2px solid #111;padding-top:8px}.kunci h3{margin:0 0 6px;font-size:14px}.kg{display:flex;flex-wrap:wrap;gap:4px 18px}
+    sup{font-size:.7em;vertical-align:super}sub{font-size:.7em;vertical-align:sub}
+    .mf{display:inline-flex;flex-direction:column;vertical-align:middle;text-align:center;margin:0 .2em;font-size:.95em;line-height:1.25}
+    .mf>.mn{padding:0 .25em;border-bottom:1.5px solid currentColor}.mf>.md{padding:0 .25em}
+    .mr{white-space:nowrap}.mr>.mrs{font-size:1.05em}.mr>.mrb{border-top:1.5px solid currentColor;padding:0 .12em}.mr>.mri{font-size:.6em;margin-right:-.15em}
+    @media print{.bar{display:none}.wrap{padding:0;max-width:none}.ok{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+  </style></head><body>
+  <div class="bar"><button onclick="window.print()">Cetak / Simpan sebagai PDF</button><span>Pada jendela cetak, pilih <b>Tujuan: Simpan sebagai PDF</b>, lalu klik Simpan.</span></div>
+  <div class="wrap"><div class="kop"><h1>SMP Negeri 1 Pandak &mdash; Paket Soal ${esc(kode)}</h1>
+    <p>${esc(mapel || '')}${kelas ? ' &middot; Kelas: ' + esc(kelas) : ''} &middot; ${list.length} soal &middot; dicetak ${tgl}</p>
+    ${withKey ? '<span class="badge">DENGAN KUNCI JAWABAN &mdash; HANYA UNTUK GURU</span>' : ''}</div>${body}${kunci}</div></body></html>`;
+}
+async function unduhPaketPDF(withKey){
+  if (!S.selPaket) return toast('Pilih paket soal terlebih dahulu.', 'err');
+  try { await loadSoal(false); } catch (e) { return; }
+  const list = S.soal[S.selPaket] || [];
+  if (!list.length) return toast('Paket ini belum berisi soal.', 'err');
+  const p = S.paket.find(x => x.kode === S.selPaket) || {};
+  const w = window.open('', '_blank');
+  if (!w) return toast('Pop-up diblokir browser. Izinkan pop-up untuk situs ini lalu coba lagi.', 'err');
+  w.document.open(); w.document.write(buildPaketPrintHTML(S.selPaket, p.mapel, p.kelas, list, withKey)); w.document.close();
+  const imgs = [...w.document.images];
+  Promise.race([Promise.all(imgs.map(im => im.complete ? 1 : new Promise(r => { im.onload = im.onerror = r; }))), new Promise(r => setTimeout(r, 6000))])
+    .then(() => { try { w.focus(); w.print(); } catch (e) {} });
+}
 async function createPaket(e){
   e.preventDefault();
   const r = await api('apiCreatePaket', $('mp-kode').value, $('mp-mapel').value, $('mp-kelas').value);
@@ -1360,7 +1434,7 @@ function copyText(id){
 /* ---------- mulai ---------- */
 window.addEventListener('DOMContentLoaded', () => {
   icons(); renderSoalFields();
-  if (TOKEN) boot().catch(() => {});
+  if (TOKEN && !expireIfAway()) { seenNow(); boot().catch(() => {}); }
 });
 </script>
 </body>

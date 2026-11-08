@@ -164,6 +164,7 @@ function togglePass(){
               <p class="text-xs text-slate-400 mt-0.5">Diperbarui otomatis tiap 15 detik</p>
             </div>
             <div class="flex items-center gap-2 w-full md:w-auto flex-wrap">
+              <span id="mon-token" class="hidden text-[11px] bg-amber-500/10 border border-amber-500/30 text-amber-300 px-2.5 py-1.5 rounded-lg font-mono"></span>
               <select id="mon-jadwal" onchange="refreshMonitor()" class="bg-slate-900 border border-slate-700 text-xs text-slate-300 px-3 py-2 rounded-lg focus:outline-none focus:border-indigo-500"></select>
               <input type="text" id="proctor-search" oninput="renderProctor()" placeholder="Cari NISN atau Nama..." class="bg-slate-900 border border-slate-700 text-xs text-slate-200 px-3 py-2 rounded-lg focus:outline-none focus:border-indigo-500 w-full md:w-56">
               <button onclick="refreshMonitor()" class="bg-slate-700 hover:bg-slate-600 text-xs text-slate-200 px-3 py-2 rounded-lg flex items-center gap-1.5 shrink-0"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Refresh</button>
@@ -295,6 +296,8 @@ function togglePass(){
                   <label class="flex items-center gap-2 text-slate-300">Batas peringatan sebelum dikumpulkan otomatis: <input id="jd-max" type="number" min="1" max="10" value="2" class="w-16 bg-slate-900 border border-slate-700 rounded-lg p-1.5 text-slate-200"></label>
                   <label class="flex items-center gap-2 text-slate-300 mt-2 w-full">Password lihat nilai siswa: <input id="jd-passhasil" type="text" maxlength="30" autocomplete="off" placeholder="kosongkan = nilai belum dibuka" class="flex-1 max-w-xs bg-slate-900 border border-slate-700 rounded-lg p-1.5 text-slate-200"></label>
                   <p class="text-[11px] text-slate-500 mt-1">Siswa yang sudah mengumpulkan melihat nilainya di halaman siswa dengan memasukkan password ini. Berikan password setelah guru siap membuka nilai.</p>
+                  <label class="flex items-center gap-2 text-slate-300 mt-3 w-full flex-wrap">Token khusus jadwal ini: <input id="jd-token" type="text" maxlength="12" autocomplete="off" placeholder="kosong = pakai token umum" class="w-44 bg-slate-900 border border-slate-700 rounded-lg p-1.5 text-slate-200 font-mono uppercase tracking-widest"><button type="button" onclick="$('jd-token').value = acakToken6()" class="px-3 py-1.5 bg-amber-600/20 text-amber-300 hover:bg-amber-600 hover:text-white border border-amber-500/30 rounded-lg text-[11px] font-semibold">Acak</button></label>
+                  <p class="text-[11px] text-slate-500 mt-1">Bila diisi, siswa hanya bisa memulai ujian ini dengan token tersebut (token umum tidak berlaku untuk jadwal ini). Kosongkan untuk memakai token umum di sebelah kanan.</p>
                 </div>
               </div>
               <div class="pt-2 flex justify-end gap-2">
@@ -312,8 +315,8 @@ function togglePass(){
           </div>
           <div class="bg-slate-800/90 rounded-xl border border-slate-700/60 p-5 space-y-4 flex flex-col justify-between shadow-xl h-fit">
             <div class="space-y-3">
-              <h3 class="font-bold text-white flex items-center gap-2"><i data-lucide="key-round" class="w-4 h-4 text-amber-400"></i> Rilis Token Ujian</h3>
-              <p class="text-xs text-slate-400">Token diberikan pengawas kepada peserta saat memulai ujian. Peserta yang sudah memulai tidak perlu token lagi untuk melanjutkan.</p>
+              <h3 class="font-bold text-white flex items-center gap-2"><i data-lucide="key-round" class="w-4 h-4 text-amber-400"></i> Rilis Token Umum</h3>
+              <p class="text-xs text-slate-400">Token umum dipakai oleh jadwal yang tidak punya token khusus (lihat kolom Token di daftar jadwal). Peserta yang sudah memulai tidak perlu token lagi untuk melanjutkan.</p>
               <div class="bg-slate-900 p-6 rounded-xl border border-slate-700 text-center space-y-2">
                 <span class="text-xs text-slate-500 font-mono uppercase">Token Aktif</span>
                 <div id="token-big" class="text-4xl font-extrabold text-amber-400 font-mono tracking-widest">------</div>
@@ -687,7 +690,15 @@ function fillJadwalSelects(){
     $('hasil-jadwal').value = pilih;
   }
 }
+
+function acakToken6(){ const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let t = ''; for (let i = 0; i < 6; i++) t += c[Math.floor(Math.random() * c.length)]; return t; }
+function updMonToken(){
+  const el = $('mon-token'); if (!el) return;
+  const j = S.jadwal.find(x => x.ID === $('mon-jadwal').value);
+  if (j && j.TokenJadwal){ el.textContent = 'TOKEN UJIAN INI: ' + j.TokenJadwal; el.classList.remove('hidden'); } else el.classList.add('hidden');
+}
 async function refreshMonitor(silent){
+  updMonToken();
   try {
     const r = await api('apiMonitor', $('mon-jadwal').value);
     S.mon = r.rows; S.monStats = r.stats; S.maxMasuk = r.maxMasuk || 2; if (r.token) setToken(r.token, r.tokenSisa, r.tokenMenit);
@@ -1199,17 +1210,19 @@ function runSim(){
 /* ---------- jadwal ---------- */
 const toLocalInput = ms => ms ? new Date(ms - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '';
 function renderJadwalTable(){
-  $('jadwal-tbody').innerHTML = S.jadwal.map(j => `<tr class="hover:bg-slate-800/50"><td class="p-3 font-medium text-slate-200">${esc(j.Judul)}${j.Mulai ? `<br><span class="text-[10px] text-slate-500">${new Date(j.Mulai).toLocaleString('id-ID')}</span>` : ''}</td><td class="p-3 font-mono">${esc(j.Paket)}</td><td class="p-3">${esc(j.Kelas)}</td><td class="p-3">${j.Durasi} mnt</td>
+  $('jadwal-tbody').innerHTML = S.jadwal.map(j => `<tr class="hover:bg-slate-800/50"><td class="p-3 font-medium text-slate-200">${esc(j.Judul)}<br><span class="text-[10px] text-slate-500">Token: ${j.TokenJadwal ? `<b class="font-mono text-amber-300 tracking-widest text-xs">${esc(j.TokenJadwal)}</b>` : '<i>token umum</i>'}</span>${j.Mulai ? `<br><span class="text-[10px] text-slate-500">${new Date(j.Mulai).toLocaleString('id-ID')}</span>` : ''}</td><td class="p-3 font-mono">${esc(j.Paket)}</td><td class="p-3">${esc(j.Kelas)}</td><td class="p-3">${j.Durasi} mnt</td>
     <td class="p-3"><span class="px-2 py-0.5 rounded-full ${j.Status === 'Aktif' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-400'}">${esc(j.Status)}</span></td>
-    <td class="p-3 text-right space-x-1"><button data-jedit="${esc(j.ID)}" class="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-[11px]">Ubah</button><button data-jdel="${esc(j.ID)}" class="px-2 py-1 bg-rose-600/20 text-rose-300 hover:bg-rose-600 hover:text-white rounded border border-rose-500/30 text-[11px]">Hapus</button></td></tr>`).join('')
+    <td class="p-3 text-right space-x-1"><button data-jtok="${esc(j.ID)}" class="px-2 py-1 bg-amber-600/20 text-amber-300 hover:bg-amber-600 hover:text-white rounded border border-amber-500/30 text-[11px]" title="Buat token baru untuk jadwal ini">Acak Token</button><button data-jedit="${esc(j.ID)}" class="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-[11px]">Ubah</button><button data-jdel="${esc(j.ID)}" class="px-2 py-1 bg-rose-600/20 text-rose-300 hover:bg-rose-600 hover:text-white rounded border border-rose-500/30 text-[11px]">Hapus</button></td></tr>`).join('')
     || '<tr><td colspan="6" class="p-6 text-center text-slate-500">Belum ada jadwal ujian.</td></tr>';
 }
 $('jadwal-tbody').addEventListener('click', async e => {
+  const tk = e.target.closest('[data-jtok]');
+  if (tk){ const r = await api('apiGenTokenJadwal', tk.dataset.jtok); S.jadwal = r.jadwal; renderJadwalTable(); updMonToken(); toast('Token baru: ' + r.token); return; }
   const ed = e.target.closest('[data-jedit]'), dl = e.target.closest('[data-jdel]');
   if (ed){ const j = S.jadwal.find(x => x.ID === ed.dataset.jedit); if (!j) return;
     $('jd-id').value = j.ID; $('jd-judul').value = j.Judul; setPaketRows(j.Paket); setKelas(j.Kelas); $('jd-status').value = j.Status;
     $('jd-durasi').value = j.Durasi; $('jd-tol').value = j.Toleransi; $('jd-mulai').value = toLocalInput(j.Mulai); $('jd-selesai').value = toLocalInput(j.Selesai);
-    $('jd-acaksoal').checked = j.AcakSoal; $('jd-acakopsi').checked = j.AcakOpsi; $('jd-tab').checked = j.DeteksiTab; $('jd-fs').checked = j.Fullscreen; $('jd-max').value = j.Max; $('jd-passhasil').value = j.PassHasil || '';
+    $('jd-acaksoal').checked = j.AcakSoal; $('jd-acakopsi').checked = j.AcakOpsi; $('jd-tab').checked = j.DeteksiTab; $('jd-fs').checked = j.Fullscreen; $('jd-max').value = j.Max; $('jd-passhasil').value = j.PassHasil || ''; $('jd-token').value = j.TokenJadwal || '';
     $('jd-form-title').textContent = 'Ubah Sesi: ' + j.Judul; window.scrollTo({ top: 0, behavior: 'smooth' }); }
   if (dl && confirm('Hapus jadwal ini?')){
     const sekalian = confirm('Hapus juga SEMUA data hasil & sesi jadwal ini dari database (spreadsheet)?\n\nOK = hapus permanen sekalian\nBatal = jadwal dihapus, data hasil tetap tersimpan dan masih bisa dilihat/dihapus dari menu Hasil');
@@ -1291,7 +1304,7 @@ $('pk-rows').addEventListener('click', e => {
 
 function resetJadwalForm(){
   $('jd-id').value = ''; $('jd-judul').value = ''; setPaketRows(''); setKelas('Semua'); $('jd-status').value = 'Aktif'; $('jd-durasi').value = 90; $('jd-tol').value = 15;
-  $('jd-mulai').value = ''; $('jd-selesai').value = ''; ['jd-acaksoal','jd-acakopsi','jd-tab','jd-fs'].forEach(i => $(i).checked = true); $('jd-max').value = 2; $('jd-passhasil').value = '';
+  $('jd-mulai').value = ''; $('jd-selesai').value = ''; ['jd-acaksoal','jd-acakopsi','jd-tab','jd-fs'].forEach(i => $(i).checked = true); $('jd-max').value = 2; $('jd-passhasil').value = ''; $('jd-token').value = '';
   $('jd-form-title').textContent = 'Konfigurasi Sesi Ujian Baru';
 }
 async function saveJadwal(){
@@ -1303,7 +1316,7 @@ async function saveJadwal(){
   const m = $('jd-mulai').value, s = $('jd-selesai').value;
   const r = await api('apiSaveJadwal', { id:$('jd-id').value, judul:$('jd-judul').value, paket:$('jd-paket').value, kelas:$('jd-kelas').value, status:$('jd-status').value,
     durasi:+$('jd-durasi').value, toleransi:+$('jd-tol').value, mulai: m ? new Date(m).getTime() : 0, selesai: s ? new Date(s).getTime() : 0,
-    acakSoal:$('jd-acaksoal').checked, acakOpsi:$('jd-acakopsi').checked, deteksiTab:$('jd-tab').checked, fullscreen:$('jd-fs').checked, max:+$('jd-max').value, passHasil:$('jd-passhasil').value });
+    acakSoal:$('jd-acaksoal').checked, acakOpsi:$('jd-acakopsi').checked, deteksiTab:$('jd-tab').checked, fullscreen:$('jd-fs').checked, max:+$('jd-max').value, passHasil:$('jd-passhasil').value, tokenJadwal:$('jd-token').value });
   S.jadwal = r.jadwal; fillJadwalSelects(); renderJadwalTable(); resetJadwalForm(); toast('Jadwal tersimpan.');
 }
 

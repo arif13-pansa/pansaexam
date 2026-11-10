@@ -326,6 +326,7 @@ function togglePass(){
             <select id="hasil-kelas" onchange="applyKelas()" title="Tampilkan per kelas" class="bg-slate-900 border border-slate-700 text-xs text-slate-300 px-3 py-2.5 rounded-lg"><option value="">Semua kelas</option></select>
             <button onclick="loadHasil(true)" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-semibold px-4 py-2.5 rounded-lg">Refresh</button>
             <span id="hs-time" class="text-[11px] text-slate-500"></span>
+            <button onclick="nilaiUlang()" class="admin-only bg-amber-600/20 text-amber-300 hover:bg-amber-600 hover:text-white border border-amber-500/30 text-xs font-semibold px-4 py-2.5 rounded-lg" title="Hitung ulang nilai semua siswa pada jadwal ini memakai kunci jawaban terbaru">Nilai Ulang</button>
             <button onclick="hapusSemuaHasil()" class="admin-only bg-rose-600/20 text-rose-300 hover:bg-rose-600 hover:text-white border border-rose-500/30 text-xs font-semibold px-4 py-2.5 rounded-lg">Hapus Semua Data</button>
             <button onclick="exportHasil()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-4 py-2.5 rounded-lg flex items-center gap-2 shadow-md shadow-emerald-600/20"><i data-lucide="download" class="w-4 h-4"></i> Unduh Rekap CSV</button>
           </div>
@@ -1356,6 +1357,14 @@ $('hasil-tbody').addEventListener('click', async e => {
 async function loadYatim(){
   if (!S.user || S.user.role !== 'Admin') return;
   try { const r = await api('apiJadwalYatim'); S.yatim = r.items || []; fillJadwalSelects(); } catch (e) {}
+}
+async function nilaiUlang(){
+  const jid = $('hasil-jadwal').value; if (!jid) return toast('Pilih jadwal terlebih dahulu.', 'err');
+  const judul = $('hasil-jadwal').selectedOptions[0] ? $('hasil-jadwal').selectedOptions[0].textContent : jid;
+  if (!confirm('Nilai ulang SEMUA siswa pada:\n' + judul + '\n\nNilai, jumlah benar, dan total akan dihitung ulang dari jawaban asli siswa memakai kunci jawaban TERBARU, lalu menimpa nilai lama.\n\nPastikan kunci soal sudah benar. Lanjutkan?')) return;
+  let r; try { r = await api('apiNilaiUlang', jid); } catch (e) { return; }
+  toast(r.berubah ? ('Nilai ulang selesai: ' + r.berubah + ' dari ' + r.diproses + ' siswa berubah.' + (r.contoh && r.contoh.length ? ' Contoh: ' + r.contoh.join('; ') : '')) : ('Nilai ulang selesai: tidak ada nilai yang berubah (' + r.diproses + ' siswa diperiksa).'));
+  loadHasil(true);
 }
 async function hapusSemuaHasil(){
   const jid = $('hasil-jadwal').value; if (!jid) return toast('Pilih jadwal terlebih dahulu.', 'err');

@@ -191,7 +191,8 @@ function togglePass(){
           <div class="flex items-center justify-between border-b border-slate-700/60 pb-3">
             <h4 id="paket-title" class="font-bold text-slate-100 flex items-center gap-2"><i data-lucide="book-open" class="w-4 h-4 text-indigo-400"></i> Pratinjau Soal Paket</h4>
             <div class="flex items-center gap-2 flex-wrap justify-end">
-              <button id="btn-cetak-soal" onclick="unduhPaketPDF(false)" class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-lg shadow-indigo-900/30" title="Cetak / simpan soal paket ini sebagai PDF"><i data-lucide="printer" class="w-4 h-4"></i> Cetak Soal</button>
+              <button id="btn-cetak-soal" onclick="unduhPaketPDF(false)" class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-lg shadow-indigo-900/30" title="Cetak soal untuk siswa (tanpa kunci jawaban)"><i data-lucide="printer" class="w-4 h-4"></i> Cetak Soal</button>
+              <button id="btn-cetak-kunci" onclick="unduhPaketPDF(true)" class="text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-lg shadow-emerald-900/30" title="Cetak soal beserta kunci jawaban (khusus guru)"><i data-lucide="key-round" class="w-4 h-4"></i> Cetak Soal + Kunci</button>
               <span id="paket-count" class="text-xs bg-slate-700 text-slate-300 px-2.5 py-1 rounded">0 Soal</span>
             </div>
           </div>
